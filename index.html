@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Chatbot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+            transition: background-color 0.3s ease;
+            position: relative;
+        }
+        .dark-mode {
+            background-color: #181818;
+            color: #f1f1f1;
+        }
+        .chat-container {
+            width: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            background: #ffffff;
+            transition: background 0.3s ease;
+        }
+        .dark-mode .chat-container {
+            background: #333;
+        }
+        .chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        .dark-mode .chat-header {
+            background-color: #0056b3;
+        }
+        .chat-box {
+            padding: 10px;
+            height: 400px;
+            overflow-y: scroll;
+            transition: background-color 0.3s ease;
+        }
+        .chat-message {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 5px;
+            max-width: 80%;
+        }
+        .chat-message.user {
+            background-color: #d1e7dd;
+            align-self: flex-end;
+        }
+        .dark-mode .chat-message.user {
+            background-color: #5a7a67;
+        }
+        .chat-message.bot {
+            background-color: #f8d7da;
+            align-self: flex-start;
+        }
+        .dark-mode .chat-message.bot {
+            background-color: #a94442;
+        }
+        .chat-input {
+            display: flex;
+            border-top: 1px solid #e0e0e0;
+            align-items: center;
+        }
+        .dark-mode .chat-input {
+            border-top: 1px solid #555;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 0;
+        }
+        .dark-mode .chat-input input {
+            background-color: #333;
+            color: #f1f1f1;
+        }
+        .chat-input button {
+            padding: 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        .chat-input button:hover {
+            background-color: #0056b3;
+        }
+        .dark-mode .chat-input button {
+            background-color: #0056b3;
+        }
+        .dark-mode .chat-input button:hover {
+            background-color: #003f7f;
+        }
+        .toggle-dark-mode {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .dark-mode .toggle-dark-mode {
+            background-color: #0056b3;
+        }
+        /* Microphone icon animation */
+        .microphone-icon {
+            margin-right: 10px;
+            background-color: #f4f4f4;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 5px;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+        .microphone-icon.active {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        .dark-mode .microphone-icon {
+            background-color: #555;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-dark-mode" onclick="toggleDarkMode()">Dark Mode</button>
+    
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>Healthcare Chatbot</h2>
+        </div>
+        <div class="chat-box" id="chat-box">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="chat-input">
+            <!-- Microphone icon -->
+            <button class="microphone-icon" id="microphone-icon" onclick="activateVoiceMode()">
+                <i class="fa fa-microphone"></i>
+            </button>
+            <input type="text" id="user-input" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Function to append messages to the chatbox and history
+        function appendMessage(content, sender) {
+            const chatBox = document.getElementById("chat-box");
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("chat-message", sender);
+            messageDiv.innerText = content;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight; // Scroll to the bottom
+
+            // Save messages to local storage
+            saveMessageToHistory(content, sender);
+        }
+
+        // Function to save messages to local storage
+        function saveMessageToHistory(content, sender) {
+            let chatHistory = JSON.parse(localStorage.getItem("chatHistory")) || [];
+            chatHistory.push({ content, sender });
+            localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+        }
+
+        // Function to load chat history from local storage
+        function loadChatHistory() {
+            const chatHistory = JSON.parse(localStorage.getItem("chatHistory")) || [];
+            chatHistory.forEach(message => {
+                appendMessage(message.content, message.sender);
+            });
+        }
+
+        // Function to send message on click or Enter key
+        function sendMessage() {
+            const userInput = document.getElementById("user-input").value;
+            if (userInput.trim() === "") return;
+            appendMessage(userInput, "user");
+            document.getElementById("user-input").value = "";
+
+            fetch("/chatbot", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: userInput })
+            })
+            .then(response => response.json())
+            .then(data => {
+                appendMessage(data.response, "bot");
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                appendMessage("Sorry, there was an error. Please try again.", "bot");
+            });
+        }
+
+        // Event listener for the Enter key
+        document.getElementById("user-input").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+
+        // Dark mode toggle functionality
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+        }
+
+        // Voice recognition using Web Speech API
+        function activateVoiceMode() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert("Sorry, your browser doesn't support speech recognition.");
+                return;
+            }
+
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            const micIcon = document.getElementById("microphone-icon");
+            micIcon.classList.add("active"); // Start animation when listening
+
+            recognition.start();
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                micIcon.classList.remove("active"); // Stop animation when listening ends
+                appendMessage(transcript, "user");
+                sendMessage(transcript); // Send the voice input as a message
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech recognition error:", event.error);
+                micIcon.classList.remove("active"); // Stop animation on error
+                appendMessage("Sorry, there was an error with voice input. Please try again.", "bot");
+            };
+
+            recognition.onend = function() {
+                micIcon.classList.remove("active"); // Stop animation when speech recognition ends
+            };
+        }
+
+        // Load chat history on page load
+        window.onload = loadChatHistory;
+
+    </script>
+</body>
+</html>
